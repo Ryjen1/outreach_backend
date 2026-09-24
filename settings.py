@@ -67,19 +67,33 @@ WSGI_APPLICATION = 'wsgi.application'
 
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('DB_NAME'),       
-        'USER': config('DB_USER'),       
-        'PASSWORD': config('DB_PASSWORD'),  
-        'HOST': config('DB_HOST'),       
-        'PORT': config('DB_PORT', cast=int), 
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+DATABASE_URL = config('DATABASE_URL', default='')
+DB_ENGINE = config('DB_ENGINE', default='mysql')
+
+if DATABASE_URL:
+    import dj_database_url
+    DATABASES = {'default': dj_database_url.parse(DATABASE_URL)}
+elif DB_ENGINE == 'sqlite':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': config('DB_NAME'),
+            'USER': config('DB_USER'),
+            'PASSWORD': config('DB_PASSWORD'),
+            'HOST': config('DB_HOST'),
+            'PORT': config('DB_PORT', cast=int),
+            'OPTIONS': {
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
+    }
 
 
 
@@ -114,10 +128,11 @@ REST_FRAMEWORK = {
 # CORS config for local React frontend
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = [
-    "https://outreach-frontend-nine.vercel.app",  
-    "https://9a93a5003588.ngrok-free.app",        
-]
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS',
+    default='https://outreach-frontend-nine.vercel.app,https://9a93a5003588.ngrok-free.app',
+    cast=Csv(),
+)
 
 
 CORS_ALLOW_HEADERS = list(default_headers) + [

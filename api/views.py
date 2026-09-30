@@ -6,6 +6,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count
 from django.http import HttpResponse
@@ -84,13 +85,19 @@ def initiate_domain_discovery(request):
     if not industry_or_seed_domain:
         return Response({'error': 'industry_or_seed_domain is required'}, status=status.HTTP_400_BAD_REQUEST)
 
+    location = request.data.get('location')
+    if not location:
+        return Response({'error': 'location is required (e.g. "Lagos", "Berlin", "10001")'}, status=status.HTTP_400_BAD_REQUEST)
+
+    max_results = request.data.get('max_results', 1000)
+
     task = DomainDiscoveryTask.objects.create(
         user=request.user,
         industry_or_seed_domain=industry_or_seed_domain
     )
 
     # Start the Celery task
-    domain_discovery_task.delay(str(task.id), industry_or_seed_domain)
+    domain_discovery_task.delay(str(task.id), industry_or_seed_domain, location, max_results)
 
     serializer = DomainDiscoveryTaskSerializer(task)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -110,6 +117,7 @@ def domain_discovery_status(request, task_id):
 def initiate_scraping(request):
     discovery_task_id = request.data.get('discovery_task_id')
     urls_list = request.data.get('urls_list')
+    max_contacts = request.data.get('max_contacts', 100)
 
     if not discovery_task_id and not urls_list:
         return Response({'error': 'Either discovery_task_id or urls_list is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -128,8 +136,13 @@ def initiate_scraping(request):
         related_domain_discovery_task=related_discovery_task
     )
 
-    # Start the Celery task
-    bulk_scraping_task.delay(str(scraping_task.id), urls_file_path, urls_list)
+    # Run the task — eagerly if CELERY_EAGER is set, else queue via Celery
+    if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
+        bulk_scraping_task.apply(
+            args=(str(scraping_task.id), urls_file_path, urls_list, max_contacts)
+        )
+    else:
+        bulk_scraping_task.delay(str(scraping_task.id), urls_file_path, urls_list, max_contacts)
 
     serializer = ScrapingTaskSerializer(scraping_task)
     return Response(serializer.data, status=status.HTTP_201_CREATED)

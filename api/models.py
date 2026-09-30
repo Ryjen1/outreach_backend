@@ -53,7 +53,7 @@ class ScrapingTask(models.Model):
 
 
 class Contact(models.Model):
-    """Model to store scraped contact information."""
+    """Model to store scraped / enriched contact information."""
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     scraping_task = models.ForeignKey(ScrapingTask, on_delete=models.CASCADE, null=True, blank=True)
     source_url = models.URLField(max_length=2000)
@@ -66,6 +66,18 @@ class Contact(models.Model):
     personalized_info = models.TextField(blank=True)
     status = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Apollo enrichment fields
+    job_title = models.CharField(max_length=255, blank=True, default='')
+    company_name = models.CharField(max_length=255, blank=True, default='')
+    company_website = models.URLField(max_length=2000, blank=True, default='')
+    linkedin_url = models.URLField(max_length=2000, blank=True, default='')
+    company_linkedin_url = models.URLField(max_length=2000, blank=True, default='')
+    company_industry = models.CharField(max_length=255, blank=True, default='')
+    company_employee_count = models.IntegerField(null=True, blank=True)
+    career_history = models.JSONField(default=list, blank=True)
+    apollo_person_id = models.CharField(max_length=100, blank=True, default='')
+    email_status = models.CharField(max_length=50, blank=True, default='')
 
     def __str__(self):
         return f"Contact: {self.name or self.email or 'Unknown'}"

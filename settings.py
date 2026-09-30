@@ -130,7 +130,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='https://outreach-frontend-nine.vercel.app,https://9a93a5003588.ngrok-free.app',
+    default='http://localhost:3000,http://localhost:5173,https://outreach-frontend-nine.vercel.app,https://9a93a5003588.ngrok-free.app',
     cast=Csv(),
 )
 
@@ -164,6 +164,16 @@ if CELERY_BROKER_URL.startswith("rediss://"):
     
     CELERY_BROKER_TRANSPORT_OPTIONS.update(CELERY_BROKER_USE_SSL)
 
+# Eager mode for local testing without Redis — runs tasks synchronously.
+# Set CELERY_EAGER=False in .env when using a real Redis broker + worker.
+CELERY_TASK_ALWAYS_EAGER = config('CELERY_EAGER', default=True, cast=bool)
+CELERY_TASK_EAGER_PROPAGATES = True
+
+# When in eager mode, use a dummy broker so Celery doesn't try to connect to Redis
+if CELERY_TASK_ALWAYS_EAGER:
+    CELERY_BROKER_URL = 'memory://'
+    CELERY_RESULT_BACKEND = 'cache+memory://'
+
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
@@ -175,6 +185,14 @@ EMAIL_USE_TLS = True
 
 
 DEFAULT_FROM_EMAIL = config('SMTP_FROM_NAME', default='Outreach Admin <no-reply@example.com>')
+
+# Apollo.io API
+APOLLO_API_KEY = config('APOLLO_API_KEY', default='')
+APOLLO_API_BASE_URL = 'https://api.apollo.io/api/v1'
+
+# Apify API (pay-as-you-go — https://console.apify.com/)
+# Used by the Google Maps Scraper actor for local-business discovery.
+APIFY_API_TOKEN = config('APIFY_API_TOKEN', default='')
 
 # Logging
 LOGGING = {
@@ -223,3 +241,8 @@ LOGGING = {
 
 # Ensure log folder exists
 os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
+
+# Import the Celery app so it's initialized with the broker URL above when
+# Django starts (e.g. runserver). Without this, delay() calls use Celery's
+# default amqp:// broker instead of Redis.
+import outreach_celery  # noqa: E402, F401

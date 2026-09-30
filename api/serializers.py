@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+import json
 import os
 from .models import (
-    DomainDiscoveryTask, ScrapingTask, Contact, EmailCampaign, 
+    DomainDiscoveryTask, ScrapingTask, Contact, EmailCampaign,
     EmailCampaignContact, EmailSendingTask, EmailTrackingEvent, SMTPConfiguration
 )
 
@@ -27,7 +28,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class DomainDiscoveryTaskSerializer(serializers.ModelSerializer):
-    discovered_urls = serializers.SerializerMethodField()
+    discovered_people = serializers.SerializerMethodField()
 
     class Meta:
         model = DomainDiscoveryTask
@@ -37,11 +38,11 @@ class DomainDiscoveryTaskSerializer(serializers.ModelSerializer):
             'output_file_path', 'created_at', 'updated_at', 'error_message'
         )
 
-    def get_discovered_urls(self, obj):
+    def get_discovered_people(self, obj):
         if obj.output_file_path and os.path.exists(obj.output_file_path):
             try:
                 with open(obj.output_file_path, 'r') as f:
-                    return f.read().splitlines()
+                    return [json.loads(line) for line in f if line.strip()]
             except Exception:
                 return []
         return []
